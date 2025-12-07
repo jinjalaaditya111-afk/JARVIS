@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JARVIS | 50MB SECURE EDITION</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap');
+
+        :root { --cyan: #00f7ff; --bg: #050a10; --glass: rgba(0, 20, 40, 0.8); }
+
+        body {
+            margin: 0; overflow: hidden;
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at center, #0f1c2e 0%, #000 90%);
+            color: var(--cyan);
+            font-family: 'Rajdhani', sans-serif;
+            height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        /* --- LOGIN SCREEN --- */
+        #login-panel {
+            position: absolute; z-index: 100;
+            background: var(--glass);
+            padding: 40px; border: 1px solid var(--cyan);
+            border-radius: 10px; box-shadow: 0 0 50px rgba(0, 247, 255, 0.2);
+            text-align: center; backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        
+        input {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--cyan);
+            color: white; padding: 10px; font-family: monospace; font-size: 14px;
+            width: 250px; outline: none; text-align: center;
+        }
+        
+        /* --- MAIN UI --- */
+        #ui-container { display: none; flex-direction: column; align-items: center; }
+        
+        #reactor {
+            position: relative; width: 300px; height: 300px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        canvas { position: absolute; mix-blend-mode: screen; }
+        
+        .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(0,247,255,0.3); }
+        .r1 { width: 100%; height: 100%; border-top: 4px solid var(--cyan); animation: spin 4s linear infinite; }
+        .r2 { width: 70%; height: 70%; border-left: 4px solid var(--cyan); animation: spin 6s linear infinite reverse; }
+
+        h1 { margin: 20px 0 0; text-shadow: 0 0 10px var(--cyan); letter-spacing: 5px; }
+        p { color: rgba(255,255,255,0.6); }
+
+        /* --- BUTTONS --- */
+        button {
+            background: var(--glass); border: 1px solid var(--cyan); color: var(--cyan);
+            padding: 12px 30px; font-weight: bold; cursor: pointer;
+            transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+        button:hover { background: var(--cyan); color: #000; box-shadow: 0 0 20px var(--cyan); }
+        
+        .controls { position: fixed; bottom: 30px; display: flex; gap: 20px; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="login-panel">
+        <h2>SECURITY PROTOCOL</h2>
+        <p>Enter Gemini API Key</p>
+        <input type="password" id="api-input" placeholder="Paste Key Here">
+        <button onclick="saveKey()">ESTABLISH LINK</button>
+    </div>
+
+    <div id="ui-container">
+        <div id="reactor">
+            <div class="ring r1"></div>
+            <div class="ring r2"></div>
+            <canvas id="scope" width="300" height="300"></canvas>
+        </div>
+        <h1 id="status">OFFLINE</h1>
+        <p id="sub">Awaiting Input...</p>
+        
+        <div class="controls">
+            <button onclick="startAI()">ACTIVATE VOICE</button>
+            <button onclick="download50MB()">BUILD 50MB CORE</button>
+            <button onclick="clearKey()">LOGOUT</button>
+        </div>
+    </div>
+
+    <script>
+        let API_KEY = localStorage.getItem("JARVIS_KEY");
+        const loginPanel = document.getElementById('login-panel');
+        const uiContainer = document.getElementById('ui-container');
+        const statusEl = document.getElementById('status');
+        const subEl = document.getElementById('sub');
+        const canvas = document.getElementById('scope');
+        const ctx = canvas.getContext('2d');
+
+        // --- 1. SECURITY SYSTEM ---
+        if (API_KEY) {
+            showUI();
+        }
+
+        function saveKey() {
+            const input = document.getElementById('api-input').value.trim();
+            if (input.length < 10) { alert("Invalid Key"); return; }
+            localStorage.setItem("JARVIS_KEY", input);
+            API_KEY = input;
+            showUI();
+        }
+
+        function clearKey() {
+            localStorage.removeItem("JARVIS_KEY");
+            location.reload();
+        }
+
+        function showUI() {
+            loginPanel.style.display = 'none';
+            uiContainer.style.display = 'flex';
+            statusEl.innerText = "STANDBY";
+            initVisualizer();
+        }
+
+        // --- 2. AUDIO VISUALIZER ---
+        let audioCtx, analyser, dataArray;
+        function initVisualizer() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 128;
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                    const src = audioCtx.createMediaStreamSource(stream);
+                    src.connect(analyser);
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    loop();
+                });
+            } catch(e) {}
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if(!dataArray) return;
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0,0,300,300);
+            
+            const cx = 150, cy = 150;
+            const avg = dataArray.reduce((a,b)=>a+b)/dataArray.length;
+            const scale = 1 + (avg/100);
+
+            // Core Glow
+            ctx.beginPath();
+            ctx.arc(cx, cy, 50*scale, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(0, 247, 255, ${avg/255})`;
+            ctx.fill();
+            
+            // Wave Ring
+            ctx.beginPath();
+            for(let i=0; i<dataArray.length; i++) {
+                const angle = (i/dataArray.length)*Math.PI*2;
+                const r = 80 + (dataArray[i]/3);
+                const x = cx + Math.cos(angle)*r;
+                const y = cy + Math.sin(angle)*r;
+                if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = '#00f7ff';
+            ctx.stroke();
+        }
+
+        // --- 3. AI INTELLIGENCE ---
+        const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const rec = new Rec();
+        rec.lang = 'gu-IN'; // Mixed Mode
+        rec.continuous = false;
+
+        function startAI() {
+            try { rec.start(); statusEl.innerText = "LISTENING"; statusEl.style.color = "#ff3300"; }
+            catch(e) { console.log("Mic error"); }
+        }
+
+        rec.onresult = async (e) => {
+            const text = e.results[0][0].transcript;
+            statusEl.innerText = "PROCESSING";
+            statusEl.style.color = "#00f7ff";
+            subEl.innerText = text;
+
+            const prompt = `You are JARVIS. User speaks mixed English/Gujarati. Reply in mixed style. Be fast. User: ${text}`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                const reply = data.candidates[0].content.parts[0].text;
+                
+                statusEl.innerText = "SPEAKING";
+                subEl.innerText = reply;
+                speak(reply);
+            } catch(err) {
+                alert("API Key Error. Check your key.");
+            }
+        };
+
+        rec.onend = () => { if(!window.speechSynthesis.speaking) statusEl.innerText = "READY"; };
+
+        function speak(text) {
+            const u = new SpeechSynthesisUtterance(text);
+            const v = window.speechSynthesis.getVoices();
+            u.voice = v.find(z => z.lang.includes('IN') || z.lang.includes('gu')) || v[0];
+            u.onend = () => startAI();
+            window.speechSynthesis.speak(u);
+        }
+
+        // --- 4. 50MB BUILDER ---
+        function download50MB() {
+            statusEl.innerText = "COMPILING (50MB)...";
+            setTimeout(() => {
+                // 50 MB Buffer Calculation
+                const size = 50 * 1024 * 1024;
+                const buffer = new Uint8Array(size);
+                
+                const blob = new Blob([document.documentElement.outerHTML, buffer], {type:'text/html'});
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = "JARVIS_SECURE_50MB.html";
+                link.click();
+                statusEl.innerText = "DONE";
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
